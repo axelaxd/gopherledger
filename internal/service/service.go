@@ -8,8 +8,10 @@ import (
 	"context"
 	"math/rand"
 	"time"
-
+	"log"
 	"gopherledger/internal/domain"
+	"golang.org/x/crypto/bcrypt"
+	"sync"
 )
 
 // Service реализует бизнес-логику приложения.
@@ -37,7 +39,14 @@ func New(repo interface{}) *Service {
 // RegisterUser регистрирует нового пользователя и возвращает токен аутентификации.
 // Хешируйте пароль перед сохранением с помощью crypto/sha256.
 func (s *Service) RegisterUser(login, password string) (string, error) {
-	panic("не реализовано")
+	ToHash := func(password string) (string, error) {
+		bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14) // 14 - сложность (cost)
+		return string(bytes), err // скеиваем полученные байты в строку
+	}
+	
+	user := domain.User{
+		ID:		s.
+	}
 }
 
 // LoginUser проверяет учётные данные и возвращает токен аутентификации.
