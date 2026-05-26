@@ -249,15 +249,15 @@ func (s *Store) GetStatus() (domain.StatsData, error) {
 	defer s.mu.RUnlock()
 
 	stats := domain.StatsData{
-		TotalUsers: 	int64(len(s.users)),
-		TotalOrders: 	int64(len(s.orders)),
+		TotalUsers:     int64(len(s.users)),
+		TotalOrders:    int64(len(s.orders)),
 		OrdersByStatus: make(map[string]int64),
 	}
 
 	// теперь посчитаем сколько начислено баллов всего
-	
+
 	for _, order := range s.orders {
-		stats.OrdersByStatus[order.Status]++ // для каждого статуса мы делаем счётчик
+		stats.OrdersByStatus[order.Status]++             // для каждого статуса мы делаем счётчик
 		if order.Status == domain.OrderStatusProcessed { // если уже баллы начислены, то добавляем
 			stats.TotalAccrued += order.Accrual
 		}

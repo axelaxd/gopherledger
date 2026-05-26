@@ -307,8 +307,8 @@ func (h *Handler) ExportStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// создаем что мы будем записывать в файл
-	content := fmt.Sprintf(`
-	Время генерации отчёта: %s
+	content := fmt.Sprintf(
+		`Время генерации отчёта: %s
 	Общее число зарегистрированных пользователей: %d
     Общее число заказов: %d
 	Распределение заказов по статусам: %v

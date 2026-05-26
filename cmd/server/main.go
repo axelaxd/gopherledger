@@ -19,13 +19,13 @@ import (
 	"gopherledger/internal/router"
 	"gopherledger/internal/service"
 	"gopherledger/internal/store"
-	"net/http"
-	"strconv"
-	"time"
 	"log"
-	"syscall"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -61,8 +61,8 @@ func main() {
 	signal.Notify(serviceChan, syscall.SIGINT, syscall.SIGTERM)
 
 	server := &http.Server{
-		Addr: ":" + strconv.Itoa(config.Server_port), // :8080 по умолчанию
-		Handler: rout, // все наши api/user/
+		Addr:    ":" + strconv.Itoa(config.Server_port), // :8080 по умолчанию
+		Handler: rout,                                   // все наши api/user/
 	}
 
 	go func() {
@@ -72,21 +72,20 @@ func main() {
 		}
 	}()
 
-	// Ожидаем сигнал завершения 
-	<- serviceChan
+	// Ожидаем сигнал завершения
+	<-serviceChan
 	log.Println("Получен сигнал завершения, останавливаем сервер...")
 
 	cancel() // остановка
 
 	// 7. Реализовать Graceful shutdown
 	// ставим timeout 5 секунд чтобы сервер успел завершить все операции
-	ctxShut, ctxCancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctxShut, ctxCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer ctxCancel()
 
 	if err := server.Shutdown(ctxShut); err != nil {
 		log.Printf("ошибка при остановке сервера: %v", err)
 	}
 
-	
 	log.Println("сервер остановлен")
 }

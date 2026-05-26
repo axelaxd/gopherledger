@@ -8,20 +8,20 @@
 package auth
 
 import (
-	"errors"
-	"sync"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"sync"
 )
 
 type Auth struct {
-	mu 		sync.RWMutex
-	tokens 	map[string]int64 // token -> userID
+	mu     sync.RWMutex
+	tokens map[string]int64 // token -> userID
 }
 
 func New() *Auth {
 	return &Auth{
-		mu: sync.RWMutex{},
+		mu:     sync.RWMutex{},
 		tokens: make(map[string]int64),
 	}
 }

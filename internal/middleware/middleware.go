@@ -6,10 +6,10 @@ import (
 	"context"
 	"gopherledger/internal/auth"
 	"gopherledger/internal/handler"
-	"net/http"
-	"time"
-	"strings"
 	"log"
+	"net/http"
+	"strings"
+	"time"
 )
 
 type Middleware struct {
@@ -82,13 +82,13 @@ func Logging(next http.Handler) http.Handler {
 
 		recorder := &statusRecorder{
 			ResponseWriter: w,
-			status: 		http.StatusOK,
+			status:         http.StatusOK,
 		}
 
 		next.ServeHTTP(recorder, r)
 
 		duration := time.Since(start) // считаем время выполнения
-		log.Printf("method=%s path=%s status=%d duration=%v", 
+		log.Printf("method=%s path=%s status=%d duration=%v",
 			r.Method, r.URL.Path, recorder.status, duration)
 
 	})
@@ -108,7 +108,7 @@ func Recover(next http.Handler) http.Handler {
 				handler.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "ошибка сервера", nil)
 			}
 		}()
-			
+
 		next.ServeHTTP(w, r)
 	})
 }

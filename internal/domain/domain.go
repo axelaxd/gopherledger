@@ -59,10 +59,10 @@ type Withdrawal struct {
 
 // StatusData пресдавляет общую статистику о магазине
 type StatsData struct {
-	TotalUsers int64
-	TotalOrders int64
+	TotalUsers     int64
+	TotalOrders    int64
 	OrdersByStatus map[string]int64 // даем статус -> выводим кол-во
-	TotalAccrued float64
+	TotalAccrued   float64
 	TotalWithdrawn float64
 }
 
