@@ -116,7 +116,8 @@ func Luhn(number string) (bool, error) {
 
 	for i := 1; i <= length; i++ {
 		cifra, _ := strconv.Atoi(string(number[length-i])) // берем справа налево
-		if i%2 == 1 {                                      // нечетная позиция
+
+		if i%2 == 0 {                                      // нечетная позиция
 			cifra = cifra * 2
 			if cifra > 9 {
 				cifra = cifra - 9
