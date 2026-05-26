@@ -6,49 +6,50 @@ package service
 
 import (
 	"context"
-	"math/rand"
-	"time"
-	"log"
-	"gopherledger/internal/domain"
-	"gopherledger/internal/auth"
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
 	"golang.org/x/sync/errgroup"
+	"gopherledger/internal/auth"
+	"gopherledger/internal/domain"
+	"log"
+	"math/rand"
+	"strconv"
 	"sync"
+	"time"
 )
+
+type Repository interface {
+	CreateUser(login, passwordHash string) (*domain.User, error)
+	GetUserByLogin(login string) (*domain.User, error)
+	CreateOrder(userID int64, number string) (*domain.Order, error)
+	GetUserOrders(userID int64) ([]domain.Order, error)
+	GetOrdersForProcessing() ([]domain.Order, error)
+	UpdateOrderStatus(number, status string, accrual float64) error
+	GetBalance(userID int64) (domain.Balance, error)
+	Withdraw(userID int64, orderNumber string, sum float64) error
+	GetWithdrawals(userID int64) ([]domain.Withdrawal, error)
+	GetStatus() (domain.StatsData, error)
+}
 
 // Service реализует бизнес-логику приложения.
 // Замените поле repo в структуре на свой интерфейс.
 //
 // processingOrders хранит номера заказов, которые сейчас обрабатываются воркером.
 // Защитите конкурентный доступ к этому полю самостоятельно.
-type Repository interface{
-	CreateUser(login, passwordHash string) (*domain.User, error)
-    GetUserByLogin(login string) (*domain.User, error)
-    CreateOrder(userID int64, number string) (*domain.Order, error)
-    GetUserOrders(userID int64) ([]domain.Order, error)
-    GetOrdersForProcessing() ([]domain.Order, error)
-    UpdateOrderStatus(number, status string, accrual float64) error
-    GetBalance(userID int64) (domain.Balance, error)
-    Withdraw(userID int64, orderNumber string, sum float64) error
-    GetWithdrawals(userID int64) ([]domain.Withdrawal, error)
-}
-
 type Service struct {
-	repo            	Repository // замените на свой интерфейс в структуре
-	auth 				*auth.Auth 	// Добавляем еще Auth, чтобы генерировать токены
-	mu 					sync.RWMutex
-	processingOrders 	map[string]bool
+	repo             Repository // замените на свой интерфейс в структуре
+	auth             *auth.Auth // Добавляем еще Auth, чтобы генерировать токены
+	mu               sync.RWMutex
+	processingOrders map[string]bool
 }
 
 // New создаёт Service.
 func New(repo Repository, a *auth.Auth) *Service {
 	return &Service{
-		repo:             	repo,
-		auth:			  	a,
-		mu:					sync.RWMutex{},
-		processingOrders: 	make(map[string]bool),
+		repo:             repo,
+		auth:             a,
+		mu:               sync.RWMutex{},
+		processingOrders: make(map[string]bool),
 	}
 }
 
@@ -70,7 +71,7 @@ func CheckHash(password, passwordHash string) bool {
 // Хешируйте пароль перед сохранением с помощью crypto/sha256.
 func (s *Service) RegisterUser(login, password string) (string, error) {
 	passwordHash := HashPassword(password)
-	
+
 	user, err := s.repo.CreateUser(login, passwordHash)
 	if err != nil {
 		return "", err
@@ -100,11 +101,11 @@ func (s *Service) LoginUser(login, password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	return token, nil
 }
 
-func Luhn (number string) (bool, error) {
+func Luhn(number string) (bool, error) {
 	_, err := strconv.Atoi(number)
 	if err != nil {
 		return false, err
@@ -115,7 +116,7 @@ func Luhn (number string) (bool, error) {
 
 	for i := 1; i <= length; i++ {
 		cifra, _ := strconv.Atoi(string(number[length-i])) // берем справа налево
-		if i % 2 == 1  { // нечетная позиция
+		if i%2 == 1 {                                      // нечетная позиция
 			cifra = cifra * 2
 			if cifra > 9 {
 				cifra = cifra - 9
@@ -125,7 +126,7 @@ func Luhn (number string) (bool, error) {
 		sum += cifra // четные позиции мы тоже добавляем, только без изменений
 	}
 
-	return (sum % 10 == 0), nil
+	return (sum%10 == 0), nil
 }
 
 // CreateOrder проверяет номер заказа по алгоритму Луна и сохраняет заказ.
@@ -230,7 +231,7 @@ func (s *Service) processAllPendingOrders(ctx context.Context) {
 
 	for _, order := range orders {
 		currentOrder := order
-		
+
 		// Перед запуском надо проверить, а не находится ли заказ уже в обработке
 		s.mu.Lock()
 		if _, ok := s.processingOrders[currentOrder.Number]; ok {
@@ -245,7 +246,7 @@ func (s *Service) processAllPendingOrders(ctx context.Context) {
 		g.Go(func() error {
 			defer func() { // по окончанию мы должны будем удалить заказ из processing
 				s.mu.Lock()
-				delete (s.processingOrders, currentOrder.Number)
+				delete(s.processingOrders, currentOrder.Number)
 				s.mu.Unlock()
 			}()
 
@@ -263,8 +264,6 @@ func (s *Service) processAllPendingOrders(ctx context.Context) {
 	}
 }
 
-
-
 // processOrder обрабатывает один заказ. Реализуйте самостоятельно.
 // Используйте вспомогательные функции ниже для генерации случайных значений.
 func (s *Service) processOrder(ctx context.Context, number string) error {
@@ -276,8 +275,8 @@ func (s *Service) processOrder(ctx context.Context, number string) error {
 
 	// дальше "выполняем" работу
 	select {
-	case <- time.After(randomDelay()): // pass
-	case <- ctx.Done(): // если вдруг что произошло с сервисом
+	case <-time.After(randomDelay()): // pass
+	case <-ctx.Done(): // если вдруг что произошло с сервисом
 		return ctx.Err()
 	}
 
@@ -306,4 +305,8 @@ func randomDelay() time.Duration {
 // isInvalid возвращает true примерно в 10% случаев.
 func isInvalid() bool {
 	return rand.Intn(10) == 0
+}
+
+func (s *Service) ExportStats() (domain.StatsData, error) {
+	return s.repo.GetStatus()
 }

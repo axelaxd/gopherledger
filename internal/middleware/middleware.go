@@ -3,8 +3,24 @@
 package middleware
 
 import (
+	"context"
+	"gopherledger/internal/auth"
+	"gopherledger/internal/handler"
 	"net/http"
+	"time"
+	"strings"
+	"log"
 )
+
+type Middleware struct {
+	auth *auth.Auth
+}
+
+func New(a *auth.Auth) *Middleware {
+	return &Middleware{
+		auth: a,
+	}
+}
 
 // Auth проверяет токен из заголовка Authorization и помещает ID пользователя в контекст.
 // Запросы без валидного токена получают ответ 401 Unauthorized.
@@ -14,9 +30,28 @@ import (
 //   - проверить токен через пакет auth
 //   - поместить ID пользователя в контекст запроса
 //   - передать управление следующему handler или вернуть 401
-func Auth(next http.Handler) http.Handler {
+func (m *Middleware) Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// реализуйте самостоятельно
+		authToken := r.Header.Get("Authorization")
+		token := strings.TrimPrefix(authToken, "Bearer ")
+		token = strings.TrimSpace(token)
+
+		if token == "" {
+			handler.WriteError(w, http.StatusUnauthorized, "NO_TOKEN", "требуется токен авторизации", nil)
+			return
+		}
+
+		userID, err := m.auth.ValidateToken(token)
+		if err != nil {
+			handler.WriteError(w, http.StatusUnauthorized, "INVALID_TOKEN", "недействительный токен", err)
+			return
+		}
+
+		// по ключу "userID" складываем что получили от ValidateToken
+		ctx := context.WithValue(r.Context(), handler.CtxKeyUserID, userID)
+
+		// передаем управление следующему handler
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -27,6 +62,14 @@ type statusRecorder struct {
 	status int
 }
 
+// Нам нужно создать WriteHeader, чтобы у нас сохранялся статус кода
+// иначе будет использоваться встроенный метод, котоорый не сораняет статус в наше поле
+// оригинальный writer сохраняет статус внутри себя
+func (rec *statusRecorder) WriteHeader(statusCode int) {
+	rec.status = statusCode
+	rec.ResponseWriter.WriteHeader(statusCode)
+}
+
 // Logging логирует метод, путь, статус ответа и время выполнения каждого запроса.
 //
 // Что нужно сделать:
@@ -35,7 +78,19 @@ type statusRecorder struct {
 //   - после выполнения handler записать лог
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// реализуйте самостоятельно
+		start := time.Now()
+
+		recorder := &statusRecorder{
+			ResponseWriter: w,
+			status: 		http.StatusOK,
+		}
+
+		next.ServeHTTP(recorder, r)
+
+		duration := time.Since(start) // считаем время выполнения
+		log.Printf("method=%s path=%s status=%d duration=%v", 
+			r.Method, r.URL.Path, recorder.status, duration)
+
 	})
 }
 
@@ -47,6 +102,13 @@ func Logging(next http.Handler) http.Handler {
 //   - если паника произошла, залогировать её и отдать 500
 func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// реализуйте самостоятельно
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("panic recovered: %v", rec)
+				handler.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "ошибка сервера", nil)
+			}
+		}()
+			
+		next.ServeHTTP(w, r)
 	})
 }

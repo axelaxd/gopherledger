@@ -5,9 +5,9 @@ package store
 
 import (
 	"gopherledger/internal/domain"
-	"time"
-	"sync"
 	"sort"
+	"sync"
+	"time"
 )
 
 // Store хранит все данные приложения в памяти.
@@ -36,20 +36,20 @@ type Store struct {
 // New создаёт и возвращает новое пустое хранилище.
 func New() *Store {
 	return &Store{
-		mu: sync.RWMutex{},
-		users: make(map[int64]*domain.User),
+		mu:           sync.RWMutex{},
+		users:        make(map[int64]*domain.User),
 		usersByLogin: make(map[string]*domain.User),
-		orders: make(map[string]*domain.Order),
-		balances: make(map[int64]*domain.Balance),
-		withdrawals: make(map[int64][]*domain.Withdrawal),
-		nextID: 1, // первый айдишник будет под номером 1
+		orders:       make(map[string]*domain.Order),
+		balances:     make(map[int64]*domain.Balance),
+		withdrawals:  make(map[int64][]*domain.Withdrawal),
+		nextID:       1, // первый айдишник будет под номером 1
 	}
 }
 
 // CreateUser добавляет нового пользователя.
 // Возвращает domain.ErrUserExists если логин уже занят.
 func (s *Store) CreateUser(login, passwordHash string) (*domain.User, error) {
-	
+
 	s.mu.Lock() // здесь читаем данные -> нельзя чтобы их переписали
 	defer s.mu.Unlock()
 
@@ -59,15 +59,14 @@ func (s *Store) CreateUser(login, passwordHash string) (*domain.User, error) {
 	}
 
 	user := &domain.User{
-		ID:				s.nextID,
-		Login:			login,
-		PasswordHash: 	passwordHash,
+		ID:           s.nextID,
+		Login:        login,
+		PasswordHash: passwordHash,
 	}
 
 	s.usersByLogin[login] = user
 	s.users[s.nextID] = user
 	s.nextID += 1 // не забываю увеличивать счётчик
-
 
 	return user, nil
 }
@@ -100,19 +99,19 @@ func (s *Store) CreateOrder(userID int64, number string) (*domain.Order, error) 
 	}
 
 	order := &domain.Order{
-		ID:				s.nextID,
-		UserID: 		userID,
-		Number: 		number,
-		Status:			"NEW",
-		Accrual: 		0,
-		UploadedAt: 	time.Now(),
+		ID:         s.nextID,
+		UserID:     userID,
+		Number:     number,
+		Status:     domain.OrderStatusNew,
+		Accrual:    0,
+		UploadedAt: time.Now(),
 	}
 
 	s.orders[number] = order
 	s.nextID++
 
 	return order, nil
-	
+
 	// - **NEW** - заказ только что загружен, ожидает обработки
 	// - **PROCESSING** - воркер взял заказ в работу
 	// - **PROCESSED** - заказ успешно обработан, баллы начислены
@@ -123,7 +122,7 @@ func (s *Store) CreateOrder(userID int64, number string) (*domain.Order, error) 
 func (s *Store) GetUserOrders(userID int64) ([]domain.Order, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	var orders []domain.Order
 	for _, value := range s.orders {
 		if value.UserID == userID {
@@ -146,7 +145,7 @@ func (s *Store) GetOrdersForProcessing() ([]domain.Order, error) {
 
 	var orders []domain.Order
 	for _, value := range s.orders {
-		if value.Status == "NEW" || value.Status == "PROCESSING" {
+		if value.Status == domain.OrderStatusNew || value.Status == domain.OrderStatusProcessing {
 			orders = append(orders, *value)
 		}
 	}
@@ -168,8 +167,8 @@ func (s *Store) UpdateOrderStatus(number, status string, accrual float64) error 
 	// Обновляем статус и деньги
 	order.Status = status
 	order.Accrual = accrual
-	
-	if accrual > 0 && status == "PROCESSED" {
+
+	if accrual > 0 && status == domain.OrderStatusProcessed {
 		if _, ok := s.balances[order.UserID]; !ok { // Так как нам не передают ID, мы берем его из orders
 			s.balances[order.UserID] = &domain.Balance{Current: 0, Withdrawn: 0}
 		}
@@ -201,7 +200,7 @@ func (s *Store) Withdraw(userID int64, orderNumber string, sum float64) error {
 
 	balance, ok := s.balances[userID]
 	if !ok {
-		return domain.ErrUserNotFound
+		return domain.ErrInvalidOrder
 	}
 
 	if balance.Current < sum {
@@ -211,14 +210,14 @@ func (s *Store) Withdraw(userID int64, orderNumber string, sum float64) error {
 	balance.Current -= sum
 	balance.Withdrawn += sum
 	withdraw := &domain.Withdrawal{
-		ID:				s.nextID,
-		UserID: 		userID,
-		OrderNumber: 	orderNumber,
-		Sum:			sum,
-		ProcessedAt:	time.Now(),
+		ID:          s.nextID,
+		UserID:      userID,
+		OrderNumber: orderNumber,
+		Sum:         sum,
+		ProcessedAt: time.Now(),
 	}
 
-	s.nextID ++
+	s.nextID++
 	s.withdrawals[userID] = append(s.withdrawals[userID], withdraw)
 
 	return nil
@@ -240,4 +239,33 @@ func (s *Store) GetWithdrawals(userID int64) ([]domain.Withdrawal, error) {
 	})
 
 	return withdrawals, nil
+}
+
+// Функция GetStatus() (StatsData struct, error)
+// Собирает полную статистику и подготавливает ее
+// для экспорта в текстовый файл
+func (s *Store) GetStatus() (domain.StatsData, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	stats := domain.StatsData{
+		TotalUsers: 	int64(len(s.users)),
+		TotalOrders: 	int64(len(s.orders)),
+		OrdersByStatus: make(map[string]int64),
+	}
+
+	// теперь посчитаем сколько начислено баллов всего
+	
+	for _, order := range s.orders {
+		stats.OrdersByStatus[order.Status]++ // для каждого статуса мы делаем счётчик
+		if order.Status == domain.OrderStatusProcessed { // если уже баллы начислены, то добавляем
+			stats.TotalAccrued += order.Accrual
+		}
+	}
+
+	for _, balance := range s.balances {
+		stats.TotalWithdrawn += balance.Withdrawn
+	}
+
+	return stats, nil
 }

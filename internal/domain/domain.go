@@ -57,6 +57,15 @@ type Withdrawal struct {
 	ProcessedAt time.Time
 }
 
+// StatusData пресдавляет общую статистику о магазине
+type StatsData struct {
+	TotalUsers int64
+	TotalOrders int64
+	OrdersByStatus map[string]int64 // даем статус -> выводим кол-во
+	TotalAccrued float64
+	TotalWithdrawn float64
+}
+
 // ---------------------------------------------------------------------------
 // Константы статусов заказа
 // ---------------------------------------------------------------------------
