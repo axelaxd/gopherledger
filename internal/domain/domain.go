@@ -57,7 +57,7 @@ type Withdrawal struct {
 	ProcessedAt time.Time
 }
 
-// StatusData пресдавляет общую статистику о магазине
+// StatusData представляет общую статистику о магазине
 type StatsData struct {
 	TotalUsers     int64
 	TotalOrders    int64
