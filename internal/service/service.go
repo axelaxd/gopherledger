@@ -1,7 +1,6 @@
 // Пакет service содержит бизнес-логику приложения.
 //
 // Взаимодействие с хранилищем осуществляется через интерфейс.
-// Определите этот интерфейс здесь, по месту использования.
 package service
 
 import (
@@ -32,12 +31,10 @@ type Repository interface {
 }
 
 // Service реализует бизнес-логику приложения.
-// Замените поле repo в структуре на свой интерфейс.
 //
 // processingOrders хранит номера заказов, которые сейчас обрабатываются воркером.
-// Защитите конкурентный доступ к этому полю самостоятельно.
 type Service struct {
-	repo             Repository // замените на свой интерфейс в структуре
+	repo             Repository
 	auth             *auth.Auth // Добавляем еще Auth, чтобы генерировать токены
 	mu               sync.RWMutex
 	processingOrders map[string]bool
@@ -68,7 +65,7 @@ func CheckHash(password, passwordHash string) bool {
 }
 
 // RegisterUser регистрирует нового пользователя и возвращает токен аутентификации.
-// Хешируйте пароль перед сохранением с помощью crypto/sha256.
+// Хешируем пароль с помощью crypto/sha256.
 func (s *Service) RegisterUser(login, password string) (string, error) {
 	passwordHash := HashPassword(password)
 
@@ -188,11 +185,8 @@ func validateLuhn(number string) bool {
 // ---------------------------------------------------------------------------
 // Воркер начислений
 //
-// StartAccrualWorker предоставлен. Реализуйте processAllPendingOrders
-// и processOrder самостоятельно.
 //
-// Это самая интересная часть проекта: конкурентная обработка заказов.
-// Подумайте, как защитить доступ к processingOrders из нескольких горутин.
+// Конкурентная обработка заказов.
 // ---------------------------------------------------------------------------
 
 // StartAccrualWorker запускает фоновый цикл, который каждые 3 секунды
@@ -213,7 +207,6 @@ func (s *Service) StartAccrualWorker(ctx context.Context) {
 }
 
 // processAllPendingOrders получает заказы для обработки и запускает горутины.
-// Реализуйте самостоятельно.
 func (s *Service) processAllPendingOrders(ctx context.Context) {
 	// Сначала получаем заказы из хранилища
 
@@ -227,8 +220,8 @@ func (s *Service) processAllPendingOrders(ctx context.Context) {
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(5)
 
-	// TODO: итерируйтесь по заказам, пропускайте те что уже в обработке,
-	// для остальных запускайте s.processOrder через g.Go
+	// 	Итерируемся по заказам, пропускаем те что уже в обработке,
+	// для остальных запускаем s.processOrder через g.Go
 
 	for _, order := range orders {
 		currentOrder := order
@@ -265,8 +258,7 @@ func (s *Service) processAllPendingOrders(ctx context.Context) {
 	}
 }
 
-// processOrder обрабатывает один заказ. Реализуйте самостоятельно.
-// Используйте вспомогательные функции ниже для генерации случайных значений.
+// processOrder обрабатывает один заказ.
 func (s *Service) processOrder(ctx context.Context, number string) error {
 	// сначала меняем статус заказа на processing
 	err := s.repo.UpdateOrderStatus(number, "PROCESSING", 0)
@@ -290,7 +282,7 @@ func (s *Service) processOrder(ctx context.Context, number string) error {
 }
 
 // ---------------------------------------------------------------------------
-// Вспомогательные функции - предоставлены
+// Вспомогательные функции
 // ---------------------------------------------------------------------------
 
 // randomAccrual возвращает случайное начисление от 10 до 500 баллов.

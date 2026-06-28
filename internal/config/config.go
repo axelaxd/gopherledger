@@ -1,5 +1,4 @@
 // Пакет config загружает конфигурацию приложения из YAML-файла.
-// Реализуйте этот пакет самостоятельно.
 package config
 
 import (
@@ -9,7 +8,6 @@ import (
 )
 
 // Config содержит параметры запуска сервера.
-// Изучите config.yaml и добавьте поля самостоятельно.
 type Config struct {
 	Server_host              string `yaml:"server_host"`
 	Server_port              int    `yaml:"server_port"`
